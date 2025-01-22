@@ -10,7 +10,7 @@
 
 
 /** 项目名称：篮球定时计分系统(Basketball Timing Scoring System, BTSsystem)
-  * Created by 韦继成 张琨皓
+  * Created by wjc zkh
   * Finished at 2024.12.23
   * 使用功能介绍：
   * 键盘功能, 0-比赛开始/继续     1-比赛暂停     2-增加比赛节数（加时）   3-切换比赛模式
