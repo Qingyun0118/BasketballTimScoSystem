@@ -7,7 +7,8 @@
                 "f:\\大三上\\微机原理与接口技术\\BasketballTimScoSystem\\HardWare",
                 "f:\\大三上\\微机原理与接口技术\\BasketballTimScoSystem\\EEPROM",
                 "f:\\大三上\\微机原理与接口技术\\BasketballTimScoSystem\\Delay",
-                "D:\\keil\\C51\\INC"
+                "D:\\keil\\C51\\INC",
+                "D:/keil/C51/INC/Atmel"
             ],
             "defines": [
                 "__C51__",
