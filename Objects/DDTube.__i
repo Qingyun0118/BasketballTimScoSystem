@@ -1,0 +1,1 @@
+"HardWare\DDTube.c" OPTIMIZE (8,SPEED) BROWSE INCDIR(.\User;.\HardWare;.\EEPROM;.\Delay) DEBUG OBJECTEXTEND PRINT(.\Listings\DDTube.lst) OBJECT(.\Objects\DDTube.obj)

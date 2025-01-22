@@ -1,0 +1,13 @@
+".\Objects\main.obj",
+".\Objects\Buzzer.obj",
+".\Objects\DS18B20.obj",
+".\Objects\LCD1602.obj",
+".\Objects\MatrixKey.obj",
+".\Objects\OneWire.obj",
+".\Objects\DDTube.obj",
+".\Objects\Timer.obj",
+".\Objects\AT24C02.obj",
+".\Objects\I2C.obj",
+".\Objects\Delay.obj" 
+TO ".\Objects\BTSsystem" 
+PRINT(".\Listings\BTSsystem.m51") RAMSIZE(256) 

@@ -1,0 +1,1 @@
+"HardWare\UART.c" OPTIMIZE (8,SPEED) BROWSE INCDIR(.\User;.\HardWare;.\EEPROM;.\Delay) DEBUG OBJECTEXTEND PRINT(.\Listings\UART.lst) OBJECT(.\Objects\UART.obj)

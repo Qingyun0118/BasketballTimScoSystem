@@ -1,0 +1,471 @@
+C51 COMPILER V9.59.0.0   MAIN                                                              12/28/2024 10:52:52 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: D:\keil\C51\BIN\C51.EXE User\main.c OPTIMIZE(8,SPEED) BROWSE INCDIR(.\User;.\HardWare;.\EEPROM;.\De
+                    -lay) DEBUG OBJECTEXTEND PRINT(.\Listings\main.lst) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include <REGX52.H>
+   2          #include "MatrixKey.h"  //矩阵键盘
+   3          #include "LCD1602.h"    //LCD显示
+   4          #include "DS18B20.h"    //温度传感器
+   5          #include "Delay.h"              //软件延时
+   6          #include "Timer.h"              //定时器
+   7          #include "DDTube.h"             //动态数码管
+   8          #include "Buzzer.h"             //蜂鸣器
+   9          #include "AT24C02.h"    //EEPROM断电保护
+  10          
+  11          
+  12          /** 项目名称：篮球定时计分系统(Basketball Timing Scoring System, BTSsystem)
+  13            * Created by 韦继成 张琨皓
+  14            * Finished at 2024.12.23
+  15            * 使用功能介绍：
+  16            * 键盘功能, 0-比赛开始/继续     1-比赛暂停     2-增加比赛节数（加时）   3-切换比赛模式
+  17                                    4-A队进1分球       5-A队进2分球   6-A队进3分球             7-断电恢复
+  18                                    8-B队进1分球       9-B队进2分球   10-B队进3分球   
+  19              0:比赛开始，哨声响，总计时开始，24s计时开始；
+  20              3:切换比赛模式：NBA or FIBA，每节比赛时间分别为12，10min，切换模式会进行一次初始化
+  21              7:断电保护，每秒钟系统会将相关数据存入EEPROM中，断电后重新上电，进入系统后如需恢复到断电前现场即按7，
+  22                若不需要恢复可直接按0开始比赛
+  23                  每节比赛结束后，定时器回到初始时间并暂停计时，等待下一节比赛开始；2节比赛后（即中场结束）会自动交换客场，
+             -主场
+  24                  比分位置
+  25            */
+  26          
+  27          
+  28          //*************** -定义常量start- ******************
+  29          #define NBA_MODE 0
+  30          #define FIBA_MODE 1
+  31          //**************** -定义常量end- *******************
+  32          
+  33          //*************** -声明变量start- *****************************************
+  34          unsigned char SetTime;//比赛初始时间（分钟）
+  35          float T;//温度
+  36          unsigned char S24_time;   //24S规则
+  37          bit S24_flag;//是否使用24s规则
+  38          
+  39          unsigned char Score[6];        //用于存储处理的比赛分数
+  40          unsigned char Time_Data[4];    //数组用于存放处理的设定时间
+  41          
+  42          //声明外部变量
+  43          extern unsigned int TempCounter;//温度更新计数器
+  44          extern bit sflag_updateTem;//温度更新标志位
+  45          
+  46          //下面的变量需要存放在EEPROM，进行断电保护
+  47          unsigned char xg,xgs1,xgs2,xgs3,xh,xhs1,xhs2,xhs3;//比分和主场客场位置记录
+  48          unsigned char mode=NBA_MODE;//比赛模式默认为NBA
+  49          unsigned char G_Score;//客场Guest分数
+  50          unsigned char H_Score;//主场Home分数
+  51          unsigned char match;//节数
+  52          unsigned char count;//50ms个数
+  53          unsigned char minute;//分钟数
+C51 COMPILER V9.59.0.0   MAIN                                                              12/28/2024 10:52:52 PAGE 2   
+
+  54          char second;//秒数
+  55          
+  56          
+  57          //*************** -声明变量 end- *****************************************
+  58          
+  59          //*************** -函数声明start- *****************************************
+  60          void SysInit();//初始化，变量定义在此完成
+  61          void GetTempreture();//获取环境温度
+  62          void KeyControl();//按键控制函数
+  63          void SaveAT2402();//断电保护
+  64          void RecoverAT2402();//断电恢复
+  65          void SwapLocation(unsigned char *x,unsigned char *y);//交换位置数据
+  66          void StartMenu();//开始菜单
+  67          void UpdateDisplay();//更新显示
+  68          //*************** -函数声明end- *****************************************
+  69          
+  70          void main(){
+  71   1              DS18B20_ConvertT();//上电先进行一次温度转换，防止第一次数据读取错误
+  72   1              Delay(1000);//等待转换完成
+  73   1              SysInit();
+  74   1              StartMenu();
+  75   1              
+  76   1              while(1){
+  77   2                      KeyControl();
+  78   2                      UpdateDisplay();
+  79   2      
+  80   2              }
+  81   1      }
+  82          
+  83          //*************** -初始化函数定义start- *****************************************
+  84          
+  85          //初始化
+  86          void SysInit()
+  87          {
+  88   1              switch(mode){
+  89   2                      case NBA_MODE:
+  90   2                              SetTime=12;
+  91   2                              break;
+  92   2                      case FIBA_MODE:
+  93   2                              SetTime=1;
+  94   2                              break;
+  95   2                      default:
+  96   2                              break;
+  97   2              }
+  98   1              
+  99   1              S24_time=24;
+ 100   1              S24_flag=0;
+ 101   1              minute=SetTime;
+ 102   1              second=0;
+ 103   1              count = 20;//50ms个数
+ 104   1              xg=1;xgs1=3;xgs2=4;xgs3=5;xh=11;xhs1=7;xhs2=8;xhs3=9;
+ 105   1              G_Score=0;H_Score=0;match=1;
+ 106   1              
+ 107   1              LCD_Init();//LCD初始化
+ 108   1              Timer0_Init();//初始化定时器
+ 109   1              Timer1_Init();
+ 110   1              TR0=0;//定时器0停止
+ 111   1      }
+ 112          
+ 113          //*************** -初始化函数定义end- *****************************************
+ 114          
+ 115          //*************** -键盘控制函数定义start- ****************************************
+C51 COMPILER V9.59.0.0   MAIN                                                              12/28/2024 10:52:52 PAGE 3   
+
+ 116          /**
+ 117          * @brief  定义键盘功能，0-比赛开始/继续    1-比赛暂停     2-增加比赛节数    3-切换比赛模式
+ 118                                                     4-A队进1分球       5-A队进2分球   6-A队进3分球      7-断电恢复
+ 119                                                     8-B队进1分球       9-B队进2分球   10-B队3分球     
+ 120            * @param  无
+ 121            * @retval 无
+ 122                                  
+ 123            */
+ 124          void KeyControl()
+ 125          {
+ 126   1              switch(MatrixKey_GetKeyNum())
+ 127   1              {
+ 128   2                      case 0:            //比赛开始/继续
+ 129   2                  TR0 = 1;             //定时器开关打开，开始计时
+ 130   2                              S24_flag=1;     //24S规则启用
+ 131   2                  Buzzer_Time(600);//比赛开始/继续的哨声
+ 132   2                  break;
+ 133   2      
+ 134   2                      case 1:            //比赛暂停
+ 135   2                  TR0 = 0;          //定时器开关打开，停止计时
+ 136   2                              Buzzer_Time(400);//比赛暂停的哨声
+ 137   2                  break;
+ 138   2      
+ 139   2                      case 2:             //手动增加比赛节数，总计时器和24s复位
+ 140   2                  if((match >= MATCH) && (minute == 0)&&(G_Score==H_Score))     //判断比赛结束是否超过四节以及此
+             -节比赛是否结束
+ 141   2                  {
+ 142   3                      TR0 = 0;                   //定时器停止
+ 143   3                      match++;                   //赛程节数加一
+ 144   3                      minute = 5;                //加时赛赛程时间设置 5分钟
+ 145   3                      second = 0;
+ 146   3                      S24_time = 24;     //24秒恢复初值
+ 147   3                                      S24_flag=0;
+ 148   3                  }
+ 149   2                  break;
+ 150   2                              
+ 151   2                      case 3:             //比赛模式切换
+ 152   2                                 
+ 153   2                              mode+=1;
+ 154   2                              if(mode>1) mode=0;
+ 155   2                              SysInit();
+ 156   2                  break;
+ 157   2                      
+ 158   2                       //每队加分后，24秒恢复初值
+ 159   2                      case 4:                         //客场队伍加1分
+ 160   2                              G_Score += 1;
+ 161   2                              S24_time = 24;
+ 162   2                  break;  
+ 163   2      
+ 164   2                      case 5:                         //客场队伍加2分
+ 165   2                              G_Score += 2;
+ 166   2                              S24_time = 24;
+ 167   2                  break;    
+ 168   2                                       
+ 169   2                      case 6:                         //客场队伍加3分
+ 170   2                              G_Score += 3;
+ 171   2                              S24_time = 24;
+ 172   2                  break;
+ 173   2                      
+ 174   2                      case 7:                         //从EEPROM中读入数据，断电恢复
+ 175   2                              RecoverAT2402();
+ 176   2                  break;
+C51 COMPILER V9.59.0.0   MAIN                                                              12/28/2024 10:52:52 PAGE 4   
+
+ 177   2                      
+ 178   2                      case 8:                         //主场队伍加1分
+ 179   2                              H_Score += 1;
+ 180   2                              S24_time = 24;
+ 181   2                  break;
+ 182   2      
+ 183   2                      case 9:                         //主场队伍加2分
+ 184   2                              H_Score += 2;
+ 185   2                              S24_time = 24;
+ 186   2      
+ 187   2                  break;
+ 188   2      
+ 189   2                      case 10:                         //主场队伍加3分
+ 190   2                              H_Score += 3;
+ 191   2                              S24_time = 24;
+ 192   2                  break;
+ 193   2                      
+ 194   2      
+ 195   2                      default:
+ 196   2                              break;  
+ 197   2              }
+ 198   1              
+ 199   1      }
+ 200          //*************** -键盘控制函数定义end- ****************************************
+ 201          
+ 202          //*************** -获取环境温度函数定义start- **********************************
+ 203          //获取环境温度
+ 204          void GetTempreture()
+ 205          {
+ 206   1              DS18B20_ConvertT();     //转换温度
+ 207   1              T=DS18B20_ReadT();      //读取温度
+ 208   1              if(T<0)                         //如果温度小于0
+ 209   1              {
+ 210   2                      LCD_ShowChar(2,8,'-');  //显示负号
+ 211   2                      T=-T;                   //将温度变为正数
+ 212   2              }
+ 213   1              else                            //如果温度大于等于0
+ 214   1              {
+ 215   2                      LCD_ShowChar(2,8,'+');  //显示正号
+ 216   2              }
+ 217   1              LCD_ShowNum(2,9,T,2);           //显示温度整数部分
+ 218   1              LCD_ShowChar(2,11,'.');         //显示小数点
+ 219   1              LCD_ShowNum(2,12,(unsigned long)(T*100)%100,1);//显示温度小数部分
+ 220   1      }
+ 221          //*************** -获取环境温度函数定义end- ***************************************
+ 222          
+ 223          //*************** -断电保护和恢复函数定义start- *****************************************
+ 224          //断电保护
+ 225          void SaveAT2402()
+ 226          {
+ 227   1              //存入比分
+ 228   1              AT24C02_WriteByte(0,G_Score);
+ 229   1              Delay(5);
+ 230   1              AT24C02_WriteByte(1,H_Score);
+ 231   1              Delay(5);
+ 232   1              
+ 233   1              AT24C02_WriteByte(2,match);//存入节数
+ 234   1              Delay(5);
+ 235   1              AT24C02_WriteByte(3,count);//存入50ms个数
+ 236   1              Delay(5);
+ 237   1              
+ 238   1              AT24C02_WriteByte(4,minute);//存入分钟数
+C51 COMPILER V9.59.0.0   MAIN                                                              12/28/2024 10:52:52 PAGE 5   
+
+ 239   1              Delay(5);
+ 240   1              AT24C02_WriteByte(5,second);//存入秒数
+ 241   1              Delay(5);
+ 242   1              
+ 243   1              //存入比分位置数据
+ 244   1              AT24C02_WriteByte(6,xg);
+ 245   1              Delay(5);
+ 246   1              AT24C02_WriteByte(7,xgs1);
+ 247   1              Delay(5);
+ 248   1              AT24C02_WriteByte(8,xgs2);
+ 249   1              Delay(5);
+ 250   1              AT24C02_WriteByte(9,xgs3);
+ 251   1              Delay(5);
+ 252   1              AT24C02_WriteByte(10,xh);
+ 253   1              Delay(5);
+ 254   1              AT24C02_WriteByte(11,xhs1);
+ 255   1              Delay(5);
+ 256   1              AT24C02_WriteByte(12,xhs2);
+ 257   1              Delay(5);
+ 258   1              AT24C02_WriteByte(13,xhs3);
+ 259   1              Delay(5);
+ 260   1              
+ 261   1              AT24C02_WriteByte(14,S24_time);//存入24秒剩余
+ 262   1              Delay(5);
+ 263   1              
+ 264   1              AT24C02_WriteByte(15,mode);//存入比赛模式
+ 265   1              Delay(5);
+ 266   1              
+ 267   1      }
+ 268          
+ 269          //断电恢复
+ 270          void RecoverAT2402()
+ 271          {
+ 272   1              //读入比分
+ 273   1              G_Score=AT24C02_ReadByte(0);
+ 274   1              H_Score=AT24C02_ReadByte(1);
+ 275   1              
+ 276   1              match=AT24C02_ReadByte(2);//读入节数
+ 277   1              count=AT24C02_ReadByte(3);//读入50ms个数
+ 278   1              
+ 279   1              minute=AT24C02_ReadByte(4);//读入分钟数
+ 280   1              second=AT24C02_ReadByte(5);//读入秒数
+ 281   1              
+ 282   1              //读入比分位置数据
+ 283   1              xg=AT24C02_ReadByte(6);
+ 284   1              xgs1=AT24C02_ReadByte(7);
+ 285   1              xgs2=AT24C02_ReadByte(8);
+ 286   1              xgs3=AT24C02_ReadByte(9);
+ 287   1              xh=AT24C02_ReadByte(10);
+ 288   1              xhs1=AT24C02_ReadByte(11);
+ 289   1              xhs2=AT24C02_ReadByte(12);
+ 290   1              xhs3=AT24C02_ReadByte(13);
+ 291   1              S24_time=AT24C02_ReadByte(14);//读入24秒剩余
+ 292   1              AT24C02_ReadByte(15);   //读入模式
+ 293   1      }
+ 294          //*************** -断电保护和恢复函数定义end- *****************************************
+ 295          
+ 296          //*************** -交换位置数据函数定义start- *****************************************
+ 297          //交换位置数据
+ 298          void SwapLocation(unsigned char *x,unsigned char *y)
+ 299          {
+ 300   1               unsigned char temp;
+C51 COMPILER V9.59.0.0   MAIN                                                              12/28/2024 10:52:52 PAGE 6   
+
+ 301   1               temp=*x;
+ 302   1               *x=*y;
+ 303   1               *y=temp;
+ 304   1       }
+ 305          //*************** -交换位置数据函数定义end- *****************************************
+ 306           
+ 307          //*************** -开始菜单函数定义start- *****************************************
+ 308          //开始菜单
+ 309          void StartMenu()
+ 310          {
+ 311   1              
+ 312   1              LCD_ShowString(1,1,"Welcome To BTSsystem!Creatd by wjc zkh");
+ 313   1              LCD_ShowString(2,1,"0--START USING BTS");
+ 314   1              while(1){
+ 315   2                      LCD_WriteCommand(0x18);
+ 316   2                      Delay(500);
+ 317   2                      if(MatrixKey_GetKeyNum()==0){
+ 318   3                              LCD_Init();//LCD初始化
+ 319   3                              break;
+ 320   3                      }
+ 321   2              }
+ 322   1      
+ 323   1      }
+ 324          //*************** -开始菜单函数定义end- *****************************************
+ 325          
+ 326          //*************** -更新显示函数定义start- *****************************************
+ 327          //更新显示
+ 328          void UpdateDisplay()
+ 329          {
+ 330   1                  Time_Data[0] = '0' + minute / 10;     //赛程时间 分 十位
+ 331   1              Time_Data[1] = '0' + minute % 10;     //赛程时间 分 个位
+ 332   1              Time_Data[2] = '0' + second / 10;     //赛程时间 秒 十位
+ 333   1              Time_Data[3] = '0' + second % 10;     //赛程时间 秒 个位
+ 334   1      
+ 335   1              Score[0] = '0' + G_Score / 100;         //G队分数 百位
+ 336   1              Score[1] = '0' + G_Score % 100 / 10;    //G队分数 十位
+ 337   1              Score[2] = '0' + G_Score % 100 % 10;    //G队分数 个位
+ 338   1              Score[3] = '0' + H_Score / 100;         //H队分数 百位
+ 339   1              Score[4] = '0' + H_Score % 100 / 10;    //H队分数 十位
+ 340   1              Score[5] = '0' + H_Score % 100 % 10;    //H队分数 个位
+ 341   1      
+ 342   1              LCD_ShowString(1,xg,"G");               //对应的位置显示
+ 343   1              LCD_ShowChar(1,xgs1,Score[0]);
+ 344   1              LCD_ShowChar(1,xgs2,Score[1]);
+ 345   1              LCD_ShowChar(1,xgs3,Score[2]);
+ 346   1              LCD_ShowString(1,6,":");
+ 347   1              LCD_ShowChar(1,xhs1,Score[3]);
+ 348   1              LCD_ShowChar(1,xhs2,Score[4]);
+ 349   1              LCD_ShowChar(1,xhs3,Score[5]);
+ 350   1              LCD_ShowString(1,xh,"H");
+ 351   1                      LCD_ShowString(2,6,"T:");
+ 352   1                      LCD_ShowString(2,1,"SEC");
+ 353   1                      LCD_ShowNum(2,4,match,1);
+ 354   1                      LCD_ShowNum(2,14,S24_time,2);
+ 355   1                      
+ 356   1                      DDTube_SetBuf(4,minute / 10);//设置显示缓存，显示数据
+ 357   1                      DDTube_SetBuf(5,minute % 10);
+ 358   1                      DDTube_SetBuf(6,second / 10);
+ 359   1                      DDTube_SetBuf(7,second % 10);
+ 360   1                      
+ 361   1      
+ 362   1                      while(sflag_updateTem){//获取温度并在LCD上显示
+C51 COMPILER V9.59.0.0   MAIN                                                              12/28/2024 10:52:52 PAGE 7   
+
+ 363   2                              GetTempreture();
+ 364   2                              sflag_updateTem=~sflag_updateTem;
+ 365   2                      }
+ 366   1                      
+ 367   1                      if(mode==NBA_MODE){
+ 368   2                              LCD_ShowString(1,13,"NBA");
+ 369   2                              
+ 370   2                              
+ 371   2                      }else if(mode==FIBA_MODE){
+ 372   2                              LCD_ShowString(1,13,"FIBA");
+ 373   2                              
+ 374   2                      }
+ 375   1                      
+ 376   1                       if((S24_time <= 0) && S24_flag)      //24秒结束，球未出手，计时器暂停，24秒复位
+ 377   1              {
+ 378   2                  TR0 = 0;
+ 379   2                  S24_time = 24;
+ 380   2                              S24_flag=0;
+ 381   2                              Buzzer_Time(100);
+ 382   2                              
+ 383   2              }
+ 384   1                      
+ 385   1                      
+ 386   1                      if(second < 0)
+ 387   1                      {
+ 388   2                              if(minute == 0)       //判断某节点是否结束
+ 389   2                              {
+ 390   3                                      if(match < MATCH)      //不是最后一节比赛结束
+ 391   3                                      {
+ 392   4                                              //计时系统恢复为默认值，比赛节数加一
+ 393   4                                              match++;       
+ 394   4                                              minute = SetTime;  
+ 395   4                                              Buzzer_Time(150);//每节比赛结束吹哨
+ 396   4                                      }
+ 397   3                                      else //最后一节比赛结束
+ 398   3                                      {
+ 399   4                                              Buzzer_Time(700);//最后一节比赛结束吹哨
+ 400   4                                      }
+ 401   3                                      second = 0;
+ 402   3                                      TR0 = 0;     //停止时钟，等待下一节比赛开始
+ 403   3                                      S24_time = 24;
+ 404   3                                      S24_flag=0;
+ 405   3                                      
+ 406   3                                      
+ 407   3                                      if(match==3)//第二节比赛结束，即中场结束，第三节比赛将要开始，交换比分，同时吹哨
+ 408   3                                      {
+ 409   4                                              unsigned char *p1,*p2;
+ 410   4                                              p1=&xg;p2=&xh;
+ 411   4                                              SwapLocation(p1,p2);
+ 412   4                                              p1=&xgs1;p2=&xhs1;
+ 413   4                                              SwapLocation(p1,p2);
+ 414   4                                              p1=&xgs2;p2=&xhs2;
+ 415   4                                              SwapLocation(p1,p2);
+ 416   4                                              p1=&xgs3;p2=&xhs3;
+ 417   4                                              SwapLocation(p1,p2);
+ 418   4                                              Buzzer_Time(300);
+ 419   4                                      }
+ 420   3                              }
+ 421   2                              else
+ 422   2                              {
+ 423   3                                      second = 59;
+ 424   3                                      minute--;
+C51 COMPILER V9.59.0.0   MAIN                                                              12/28/2024 10:52:52 PAGE 8   
+
+ 425   3                              }
+ 426   2                      }
+ 427   1                      
+ 428   1      }
+ 429          //*************** -更新显示函数定义end- *****************************************
+ 430          
+ 431          //*************** -函数定义end- **********************************************************
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1451    ----
+   CONSTANT SIZE    =     80    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     31      12
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
