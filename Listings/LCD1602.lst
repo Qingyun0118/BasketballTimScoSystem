@@ -1,4 +1,4 @@
-C51 COMPILER V9.59.0.0   LCD1602                                                           12/23/2024 13:18:30 PAGE 1   
+C51 COMPILER V9.59.0.0   LCD1602                                                           01/22/2025 20:49:40 PAGE 1   
 
 
 C51 COMPILER V9.59.0.0, COMPILATION OF MODULE LCD1602
@@ -62,7 +62,7 @@ line level    source
   52   1      }
   53          
   54          /**
-C51 COMPILER V9.59.0.0   LCD1602                                                           12/23/2024 13:18:30 PAGE 2   
+C51 COMPILER V9.59.0.0   LCD1602                                                           01/22/2025 20:49:40 PAGE 2   
 
   55            * @brief  LCD1602设置光标位置
   56            * @param  Line 行位置，范围：1~2
@@ -126,7 +126,7 @@ line level    source
  114          
  115          /**
  116            * @brief  返回值=X的Y次方
-C51 COMPILER V9.59.0.0   LCD1602                                                           12/23/2024 13:18:30 PAGE 3   
+C51 COMPILER V9.59.0.0   LCD1602                                                           01/22/2025 20:49:40 PAGE 3   
 
  117            */
  118          int LCD_Pow(int X,int Y)

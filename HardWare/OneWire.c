@@ -62,13 +62,13 @@ unsigned char OneWire_ReceiveBit(void)
 void OneWire_SendByte(unsigned char Byte)
 {
 	unsigned char i;
-	EA=0;//使用两个定时器中断且定时器0的定时器服务程序比较耗时（断电保护），
-		//单片机进入中断会对总线的时序产生影响，造成时序混乱，导致温度混乱跳变
+	// EA=0;//使用两个定时器中断且定时器0的定时器服务程序比较耗时（断电保护），
+		//单片机进入中断会对总线的时序产生影响，造成时序混乱，导致温度混乱跳变       断电保护我放到中断服务函数外面了，这里应该不需要开关总允许了
 	for(i=0;i<8;i++)
 	{
 		OneWire_SendBit(Byte&(0x01<<i));
 	}
-	EA=1;
+	// EA=1;
 }
 
 /**
@@ -80,12 +80,12 @@ unsigned char OneWire_ReceiveByte(void)
 {
 	unsigned char i;
 	unsigned char Byte=0x00;
-	EA=0;//使用两个定时器中断且定时器0的定时器服务程序比较耗时（断电保护），
+	// EA=0;//使用两个定时器中断且定时器0的定时器服务程序比较耗时（断电保护），
 		//单片机进入中断会对总线的时序产生影响，造成时序混乱，导致温度混乱跳变
 	for(i=0;i<8;i++)
 	{
 		if(OneWire_ReceiveBit()){Byte|=(0x01<<i);}
 	}
-	EA=1;
+	// EA=1;
 	return Byte;
 }

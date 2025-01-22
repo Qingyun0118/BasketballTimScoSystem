@@ -42,6 +42,7 @@ unsigned char Time_Data[4];    //数组用于存放处理的设定时间
 //声明外部变量
 extern unsigned int TempCounter;//温度更新计数器
 extern bit sflag_updateTem;//温度更新标志位
+extern bit sflag_SaveAT2402;
 
 //下面的变量需要存放在EEPROM，进行断电保护
 unsigned char xg,xgs1,xgs2,xgs3,xh,xhs1,xhs2,xhs3;//比分和主场客场位置记录
@@ -291,6 +292,8 @@ void RecoverAT2402()
 	S24_time=AT24C02_ReadByte(14);//读入24秒剩余
 	AT24C02_ReadByte(15);	//读入模式
 }
+
+
 //*************** -断电保护和恢复函数定义end- *****************************************
 
 //*************** -交换位置数据函数定义start- *****************************************
@@ -359,9 +362,13 @@ void UpdateDisplay()
 		DDTube_SetBuf(7,second % 10);
 		
 
-		while(sflag_updateTem){//获取温度并在LCD上显示
+		if(sflag_updateTem){//获取温度并在LCD上显示
 			GetTempreture();
 			sflag_updateTem=~sflag_updateTem;
+		}
+		if(sflag_SaveAT2402){
+			SaveAT2402();
+			sflag_SaveAT2402=~sflag_SaveAT2402;
 		}
 		
 		if(mode==NBA_MODE){

@@ -1,4 +1,4 @@
-C51 COMPILER V9.59.0.0   I2C                                                               12/22/2024 19:18:50 PAGE 1   
+C51 COMPILER V9.59.0.0   I2C                                                               01/22/2025 20:49:40 PAGE 1   
 
 
 C51 COMPILER V9.59.0.0, COMPILATION OF MODULE I2C
@@ -62,7 +62,7 @@ line level    source
   52          {
   53   1              unsigned char i,Byte=0x00;
   54   1              I2C_SDA=1;
-C51 COMPILER V9.59.0.0   I2C                                                               12/22/2024 19:18:50 PAGE 2   
+C51 COMPILER V9.59.0.0   I2C                                                               01/22/2025 20:49:40 PAGE 2   
 
   55   1              for(i=0;i<8;i++)
   56   1              {

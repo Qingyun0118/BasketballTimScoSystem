@@ -1,6 +1,7 @@
 Build target 'BTS'
+compiling OneWire.c...
 linking...
-Program Size: data=82.2 xdata=0 code=4256
+Program Size: data=79.3 xdata=0 code=4215
 creating hex file from ".\Objects\BTSsystem"...
 ".\Objects\BTSsystem" - 0 Error(s), 0 Warning(s).
-Build Time Elapsed:  00:00:01
+Build Time Elapsed:  00:00:00

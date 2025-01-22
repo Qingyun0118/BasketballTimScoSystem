@@ -14,6 +14,7 @@ extern void SaveAT2402();
 //定义变量
 unsigned int TempCounter=1500;//每1.5s更新一次温度
 bit sflag_updateTem=1;
+bit sflag_SaveAT2402=0;
 
 /**
   * @brief  定时器0初始化，1毫秒@12.000MHz
@@ -60,7 +61,9 @@ void Timer0_Routine() interrupt 1
             S24_time--;
 			
         }
-        SaveAT2402();//每秒存入数据
+        // SaveAT2402();//每秒存入数据    这个地方直接调用存储函数导致中断服务函数时间太长了，导致后边数码管闪烁和温度传感器显示乱跳的bug，这里设置
+										//一个标志位来实现，在外部实现存取数据
+		sflag_SaveAT2402=~sflag_SaveAT2402;
 	}
 
 	TH0 = 0x3C;		//设置定时初值
